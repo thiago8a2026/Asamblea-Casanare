@@ -1,0 +1,250 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 0. RED DE SEGURIDAD GLOBAL: denegar todo por defecto
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- FUNCIONES AUXILIARES (PRIMOS DE SEGURIDAD) ---
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Administrador inicial verificado (Bootstrap Admin) - sin llamadas get()
+    function isBootstrappedAdmin() {
+      return isSignedIn() &&
+             request.auth.token.email == 'appcasanare2027@gmail.com' &&
+             request.auth.token.email_verified == true;
+    }
+
+    // Verificación de rol ADMIN en colección usuarios_campana (solo usar en get/write, nunca en list)
+    function isAdmin() {
+      return isBootstrappedAdmin() || (
+        isSignedIn() &&
+        exists(/databases/$(database)/documents/usuarios_campana/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/usuarios_campana/$(request.auth.uid)).data.activo == true &&
+        get(/databases/$(database)/documents/usuarios_campana/$(request.auth.uid)).data.rol == 'ADMIN'
+      );
+    }
+
+    function isActiveTeamMember() {
+      return isBootstrappedAdmin() || (
+        isSignedIn() &&
+        exists(/databases/$(database)/documents/usuarios_campana/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/usuarios_campana/$(request.auth.uid)).data.activo == true
+      );
+    }
+
+    function isBoundedStringList(arr, maxLen) {
+      return arr is list && arr.size() <= maxLen && (arr.size() == 0 || arr[0] is string);
+    }
+
+    // --- VALIDADORES DE ESQUEMA (ANTI-UPDATE-GAP) ---
+
+    function isValidConfiguracion(data) {
+      return data.keys().hasAll(['nombre_candidato', 'eslogan', 'color_primario', 'color_secundario']) &&
+             data.keys().hasOnly(['nombre_candidato', 'eslogan', 'color_primario', 'color_secundario', 'logo_url', 'updated_at']) &&
+             data.nombre_candidato is string && data.nombre_candidato.size() >= 2 && data.nombre_candidato.size() <= 100 &&
+             data.eslogan is string && data.eslogan.size() >= 2 && data.eslogan.size() <= 160 &&
+             data.color_primario is string && data.color_primario.matches('^#[0-9A-Fa-f]{6}$') &&
+             data.color_secundario is string && data.color_secundario.matches('^#[0-9A-Fa-f]{6}$') &&
+             (!('logo_url' in data) || (data.logo_url is string && data.logo_url.size() <= 500)) &&
+             (!('updated_at' in data) || (data.updated_at is timestamp && data.updated_at <= request.time));
+    }
+
+    function isValidMunicipio(data) {
+      return data.keys().hasAll(['codigo_dane', 'nombre', 'subregion', 'meta_votos', 'nivel_energia', 'resumen_publico']) &&
+             data.keys().hasOnly(['codigo_dane', 'nombre', 'subregion', 'meta_votos', 'nivel_energia', 'resumen_publico', 'lat', 'lon', 'coord_uids']) &&
+             data.codigo_dane is string && data.codigo_dane.matches('^85[0-9]{3}$') &&
+             data.nombre is string && data.nombre.size() >= 2 && data.nombre.size() <= 80 &&
+             data.subregion is string && data.subregion.size() >= 2 && data.subregion.size() <= 60 &&
+             data.meta_votos is int && data.meta_votos >= 0 && data.meta_votos <= 500000 &&
+             data.nivel_energia is int && data.nivel_energia >= 0 && data.nivel_energia <= 100 &&
+             data.resumen_publico is string && data.resumen_publico.size() <= 600 &&
+             (!('lat' in data) || data.lat is number) &&
+             (!('lon' in data) || data.lon is number) &&
+             (!('coord_uids' in data) || isBoundedStringList(data.coord_uids, 10));
+    }
+
+    function isValidVereda(data) {
+      return data.keys().hasAll(['municipio_id', 'nombre', 'zona', 'meta_votos', 'nivel_energia', 'lider_uid']) &&
+             data.keys().hasOnly(['municipio_id', 'nombre', 'zona', 'meta_votos', 'nivel_energia', 'lider_uid', 'lider_nombre', 'puesto_votacion', 'lat', 'lon', 'geojson']) &&
+             data.municipio_id is string && data.municipio_id.matches('^85[0-9]{3}$') &&
+             data.nombre is string && data.nombre.size() >= 2 && data.nombre.size() <= 100 &&
+             data.zona in ['RURAL', 'URBANA'] &&
+             data.meta_votos is int && data.meta_votos >= 0 && data.meta_votos <= 100000 &&
+             data.nivel_energia is int && data.nivel_energia >= 0 && data.nivel_energia <= 100 &&
+             data.lider_uid is string && data.lider_uid.size() <= 128 &&
+             (!('lider_nombre' in data) || (data.lider_nombre is string && data.lider_nombre.size() <= 100)) &&
+             (!('puesto_votacion' in data) || (data.puesto_votacion is string && data.puesto_votacion.size() <= 140)) &&
+             (!('lat' in data) || data.lat is number) &&
+             (!('lon' in data) || data.lon is number) &&
+             (!('geojson' in data) || (data.geojson is string && data.geojson.size() <= 100000));
+    }
+
+    function isValidUsuarioCampana(data) {
+      return data.keys().hasAll(['uid', 'nombre', 'rol', 'activo', 'created_at']) &&
+             data.keys().hasOnly(['uid', 'nombre', 'email', 'cedula', 'telefono', 'rol', 'municipio_id', 'vereda_id', 'activo', 'created_at']) &&
+             data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128 &&
+             data.nombre is string && data.nombre.size() >= 2 && data.nombre.size() <= 100 &&
+             (!('email' in data) || (data.email is string && data.email.size() <= 120)) &&
+             (!('cedula' in data) || (data.cedula is string && data.cedula.size() <= 20)) &&
+             (!('telefono' in data) || (data.telefono is string && data.telefono.size() <= 20)) &&
+             data.rol in ['ADMIN', 'COORD_MUNICIPAL', 'LIDER_VEREDAL'] &&
+             (!('municipio_id' in data) || (data.municipio_id is string && data.municipio_id.size() <= 10)) &&
+             (!('vereda_id' in data) || (data.vereda_id is string && data.vereda_id.size() <= 128)) &&
+             data.activo is bool &&
+             data.created_at is timestamp && data.created_at <= request.time;
+    }
+
+    function isValidSimpatizante(data) {
+      return data.keys().hasAll(['nombre', 'cedula', 'telefono', 'municipio_id', 'vereda_id', 'lider_uid', 'authorized_uids', 'acepto_habeas_data', 'fecha_habeas_data', 'created_at']) &&
+             data.keys().hasOnly(['nombre', 'cedula', 'telefono', 'municipio_id', 'vereda_id', 'puesto_votacion', 'mesa', 'lider_uid', 'lider_nombre', 'authorized_uids', 'acepto_habeas_data', 'fecha_habeas_data', 'created_at']) &&
+             data.nombre is string && data.nombre.size() >= 2 && data.nombre.size() <= 100 &&
+             data.cedula is string && data.cedula.size() >= 4 && data.cedula.size() <= 20 &&
+             data.telefono is string && data.telefono.size() >= 7 && data.telefono.size() <= 20 &&
+             data.municipio_id is string && data.municipio_id.matches('^85[0-9]{3}$') &&
+             data.vereda_id is string && data.vereda_id.size() >= 1 && data.vereda_id.size() <= 128 &&
+             (!('puesto_votacion' in data) || (data.puesto_votacion is string && data.puesto_votacion.size() <= 140)) &&
+             (!('mesa' in data) || (data.mesa is string && data.mesa.size() <= 20)) &&
+             data.lider_uid is string && data.lider_uid.size() >= 1 && data.lider_uid.size() <= 128 &&
+             (!('lider_nombre' in data) || (data.lider_nombre is string && data.lider_nombre.size() <= 100)) &&
+             isBoundedStringList(data.authorized_uids, 10) &&
+             data.lider_uid in data.authorized_uids &&
+             data.acepto_habeas_data == true &&
+             data.fecha_habeas_data is timestamp && data.fecha_habeas_data <= request.time &&
+             data.created_at is timestamp && data.created_at <= request.time;
+    }
+
+    function isValidGestionPropuesta(data) {
+      return data.keys().hasAll(['tipo', 'municipio_id', 'categoria', 'titulo', 'descripcion', 'visible_publico', 'created_at', 'updated_at']) &&
+             data.keys().hasOnly(['tipo', 'municipio_id', 'categoria', 'titulo', 'descripcion', 'imagen_url', 'fecha_texto', 'visible_publico', 'created_at', 'updated_at']) &&
+             data.tipo in ['GESTION', 'PROPUESTA'] &&
+             data.municipio_id is string && data.municipio_id.matches('^85[0-9]{3}$') &&
+             data.categoria is string && data.categoria.size() >= 2 && data.categoria.size() <= 60 &&
+             data.titulo is string && data.titulo.size() >= 3 && data.titulo.size() <= 140 &&
+             data.descripcion is string && data.descripcion.size() >= 5 && data.descripcion.size() <= 1200 &&
+             (!('imagen_url' in data) || (data.imagen_url is string && data.imagen_url.size() <= 500)) &&
+             (!('fecha_texto' in data) || (data.fecha_texto is string && data.fecha_texto.size() <= 40)) &&
+             data.visible_publico is bool &&
+             data.created_at is timestamp && data.created_at <= request.time &&
+             data.updated_at is timestamp && data.updated_at <= request.time;
+    }
+
+    function isValidReporteCiudadano(data) {
+      return data.keys().hasAll(['municipio_id', 'vereda_id', 'vereda_nombre', 'categoria', 'descripcion', 'estado', 'authorized_uids', 'created_at']) &&
+             data.keys().hasOnly(['municipio_id', 'vereda_id', 'vereda_nombre', 'categoria', 'descripcion', 'telefono_opcional', 'estado', 'authorized_uids', 'created_at']) &&
+             data.municipio_id is string && data.municipio_id.matches('^85[0-9]{3}$') &&
+             data.vereda_id is string && data.vereda_id.size() >= 1 && data.vereda_id.size() <= 128 &&
+             data.vereda_nombre is string && data.vereda_nombre.size() >= 1 && data.vereda_nombre.size() <= 100 &&
+             data.categoria is string && data.categoria.size() >= 2 && data.categoria.size() <= 60 &&
+             data.descripcion is string && data.descripcion.size() >= 5 && data.descripcion.size() <= 1000 &&
+             (!('telefono_opcional' in data) || (data.telefono_opcional is string && data.telefono_opcional.size() <= 20)) &&
+             data.estado in ['PENDIENTE', 'REVISADO', 'GESTIONADO'] &&
+             isBoundedStringList(data.authorized_uids, 10) &&
+             data.created_at is timestamp && data.created_at <= request.time;
+    }
+
+    // --- REGLAS POR COLECCIÓN ---
+
+    // 1. Configuración pública editable de campaña (lectura pública, escritura solo ADMIN)
+    match /configuracion_campana/{configId} {
+      allow get, list: if true;
+      allow create, update: if isValidId(configId) && isAdmin() && isValidConfiguracion(incoming());
+      allow delete: if isValidId(configId) && isAdmin();
+    }
+
+    // 2. Municipios de Casanare (lectura pública, escritura solo ADMIN)
+    match /municipios/{codigoDane} {
+      allow get, list: if true;
+      allow create, update: if isValidId(codigoDane) && isAdmin() && isValidMunicipio(incoming());
+      allow delete: if isValidId(codigoDane) && isAdmin();
+    }
+
+    // 3. Veredas y cascos urbanos (lectura pública, escritura solo ADMIN)
+    match /veredas/{veredaId} {
+      allow get, list: if true;
+      allow create, update: if isValidId(veredaId) && isAdmin() && isValidVereda(incoming());
+      allow delete: if isValidId(veredaId) && isAdmin();
+    }
+
+    // 4. Gestión y Propuestas (lectura pública únicamente si visible_publico == true; ADMIN ve todo)
+    match /gestion_propuestas/{itemId} {
+      allow get: if isValidId(itemId) && (existing().visible_publico == true || isAdmin());
+      allow list: if existing().visible_publico == true || isBootstrappedAdmin();
+      allow create: if isValidId(itemId) && isAdmin() && isValidGestionPropuesta(incoming());
+      allow update: if isValidId(itemId) && isAdmin() && isValidGestionPropuesta(incoming()) &&
+                       incoming().created_at == existing().created_at;
+      allow delete: if isValidId(itemId) && isAdmin();
+    }
+
+    // 5. Usuarios de campaña (100% bloqueado al público; lectura solo propio perfil o ADMIN)
+    match /usuarios_campana/{uid} {
+      allow get: if isValidId(uid) && isSignedIn() && (request.auth.uid == uid || isAdmin());
+      allow list: if isBootstrappedAdmin() || (isSignedIn() && existing().uid == request.auth.uid);
+      allow create: if isValidId(uid) && isAdmin() && isValidUsuarioCampana(incoming()) && incoming().uid == uid;
+      allow update: if isValidId(uid) && isAdmin() && isValidUsuarioCampana(incoming()) &&
+                       incoming().uid == existing().uid &&
+                       incoming().created_at == existing().created_at;
+      allow delete: if isValidId(uid) && isAdmin();
+    }
+
+    // 6. Simpatizantes (100% bloqueado al público; protegido por rol, Habeas Data y propiedad)
+    match /simpatizantes/{simpatizanteId} {
+      allow get: if isValidId(simpatizanteId) && isSignedIn() && (
+        isAdmin() ||
+        existing().lider_uid == request.auth.uid ||
+        request.auth.uid in existing().authorized_uids
+      );
+      allow list: if isBootstrappedAdmin() || (
+        isSignedIn() && (
+          existing().lider_uid == request.auth.uid ||
+          request.auth.uid in existing().authorized_uids
+        )
+      );
+      allow create: if isValidId(simpatizanteId) && isActiveTeamMember() &&
+                       isValidSimpatizante(incoming()) &&
+                       (isAdmin() || incoming().lider_uid == request.auth.uid);
+      allow update: if isValidId(simpatizanteId) && isActiveTeamMember() &&
+                       isValidSimpatizante(incoming()) &&
+                       incoming().created_at == existing().created_at &&
+                       incoming().lider_uid == existing().lider_uid &&
+                       (isAdmin() || existing().lider_uid == request.auth.uid);
+      allow delete: if isValidId(simpatizanteId) && isAdmin();
+    }
+
+    // 7. Reportes ciudadanos (creación pública validada con estado PENDIENTE; lectura/gestión solo equipo)
+    match /reportes_ciudadanos/{reporteId} {
+      allow create: if isValidId(reporteId) &&
+                       isValidReporteCiudadano(incoming()) &&
+                       incoming().estado == 'PENDIENTE';
+      allow get: if isValidId(reporteId) && isSignedIn() && (
+        isAdmin() ||
+        request.auth.uid in existing().authorized_uids
+      );
+      allow list: if isBootstrappedAdmin() || (
+        isSignedIn() && request.auth.uid in existing().authorized_uids
+      );
+      allow update: if isValidId(reporteId) && isActiveTeamMember() &&
+                       isValidReporteCiudadano(incoming()) &&
+                       incoming().created_at == existing().created_at &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['estado']) &&
+                       (isAdmin() || request.auth.uid in existing().authorized_uids);
+      allow delete: if isValidId(reporteId) && isAdmin();
+    }
+  }
+}

@@ -1,0 +1,158 @@
+{
+  "entities": {
+    "ConfiguracionCampana": {
+      "title": "ConfiguracionCampana",
+      "description": "Parámetros editables de marca, candidato y colores de campaña.",
+      "type": "object",
+      "properties": {
+        "nombre_candidato": { "type": "string" },
+        "eslogan": { "type": "string" },
+        "color_primario": { "type": "string" },
+        "color_secundario": { "type": "string" },
+        "logo_url": { "type": "string" },
+        "updated_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["nombre_candidato", "eslogan", "color_primario", "color_secundario"]
+    },
+    "Municipio": {
+      "title": "Municipio",
+      "description": "Municipio oficial del Departamento de Casanare (código DANE 85).",
+      "type": "object",
+      "properties": {
+        "codigo_dane": { "type": "string" },
+        "nombre": { "type": "string" },
+        "subregion": { "type": "string" },
+        "meta_votos": { "type": "integer" },
+        "nivel_energia": { "type": "integer" },
+        "resumen_publico": { "type": "string" },
+        "lat": { "type": "number" },
+        "lon": { "type": "number" },
+        "coord_uids": { "type": "array" }
+      },
+      "required": ["codigo_dane", "nombre", "subregion", "meta_votos", "nivel_energia", "resumen_publico"]
+    },
+    "Vereda": {
+      "title": "Vereda",
+      "description": "División interna veredal, corregimiento o casco urbano de un municipio.",
+      "type": "object",
+      "properties": {
+        "municipio_id": { "type": "string" },
+        "nombre": { "type": "string" },
+        "zona": { "type": "string", "enum": ["RURAL", "URBANA"] },
+        "meta_votos": { "type": "integer" },
+        "nivel_energia": { "type": "integer" },
+        "lider_uid": { "type": "string" },
+        "lider_nombre": { "type": "string" },
+        "puesto_votacion": { "type": "string" },
+        "lat": { "type": "number" },
+        "lon": { "type": "number" },
+        "geojson": { "type": "string" }
+      },
+      "required": ["municipio_id", "nombre", "zona", "meta_votos", "nivel_energia", "lider_uid"]
+    },
+    "UsuarioCampana": {
+      "title": "UsuarioCampana",
+      "description": "Perfil RBAC privado de miembro del equipo de campaña indexado por UID.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "nombre": { "type": "string" },
+        "email": { "type": "string" },
+        "cedula": { "type": "string" },
+        "telefono": { "type": "string" },
+        "rol": { "type": "string", "enum": ["ADMIN", "COORD_MUNICIPAL", "LIDER_VEREDAL"] },
+        "municipio_id": { "type": "string" },
+        "vereda_id": { "type": "string" },
+        "activo": { "type": "boolean" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "nombre", "rol", "activo", "created_at"]
+    },
+    "Simpatizante": {
+      "title": "Simpatizante",
+      "description": "Registro privado de simpatizante/referido con consentimiento Habeas Data Ley 1581.",
+      "type": "object",
+      "properties": {
+        "nombre": { "type": "string" },
+        "cedula": { "type": "string" },
+        "telefono": { "type": "string" },
+        "municipio_id": { "type": "string" },
+        "vereda_id": { "type": "string" },
+        "puesto_votacion": { "type": "string" },
+        "mesa": { "type": "string" },
+        "lider_uid": { "type": "string" },
+        "lider_nombre": { "type": "string" },
+        "authorized_uids": { "type": "array" },
+        "acepto_habeas_data": { "type": "boolean" },
+        "fecha_habeas_data": { "type": "string", "format": "date-time" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["nombre", "cedula", "telefono", "municipio_id", "vereda_id", "lider_uid", "authorized_uids", "acepto_habeas_data", "fecha_habeas_data", "created_at"]
+    },
+    "GestionPropuesta": {
+      "title": "GestionPropuesta",
+      "description": "Tarjeta pública de gestión realizada o propuesta municipal/departamental.",
+      "type": "object",
+      "properties": {
+        "tipo": { "type": "string", "enum": ["GESTION", "PROPUESTA"] },
+        "municipio_id": { "type": "string" },
+        "categoria": { "type": "string" },
+        "titulo": { "type": "string" },
+        "descripcion": { "type": "string" },
+        "imagen_url": { "type": "string" },
+        "fecha_texto": { "type": "string" },
+        "visible_publico": { "type": "boolean" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["tipo", "municipio_id", "categoria", "titulo", "descripcion", "visible_publico", "created_at", "updated_at"]
+    },
+    "ReporteCiudadano": {
+      "title": "ReporteCiudadano",
+      "description": "Inquietud ciudadana enviada desde el buzón veredal público.",
+      "type": "object",
+      "properties": {
+        "municipio_id": { "type": "string" },
+        "vereda_id": { "type": "string" },
+        "vereda_nombre": { "type": "string" },
+        "categoria": { "type": "string" },
+        "descripcion": { "type": "string" },
+        "telefono_opcional": { "type": "string" },
+        "estado": { "type": "string", "enum": ["PENDIENTE", "REVISADO", "GESTIONADO"] },
+        "authorized_uids": { "type": "array" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["municipio_id", "vereda_id", "vereda_nombre", "categoria", "descripcion", "estado", "authorized_uids", "created_at"]
+    }
+  },
+  "firestore": {
+    "/configuracion_campana/{configId}": {
+      "schema": { "$ref": "#/entities/ConfiguracionCampana" },
+      "description": "Configuración general editable de la campaña."
+    },
+    "/municipios/{codigoDane}": {
+      "schema": { "$ref": "#/entities/Municipio" },
+      "description": "Catálogo de los 19 municipios de Casanare."
+    },
+    "/veredas/{veredaId}": {
+      "schema": { "$ref": "#/entities/Vereda" },
+      "description": "Veredas, corregimientos y cascos urbanos por municipio."
+    },
+    "/usuarios_campana/{uid}": {
+      "schema": { "$ref": "#/entities/UsuarioCampana" },
+      "description": "Perfiles y roles privados del equipo de campaña."
+    },
+    "/simpatizantes/{simpatizanteId}": {
+      "schema": { "$ref": "#/entities/Simpatizante" },
+      "description": "Simpatizantes y referidos protegidos por Habeas Data."
+    },
+    "/gestion_propuestas/{itemId}": {
+      "schema": { "$ref": "#/entities/GestionPropuesta" },
+      "description": "Gestión y propuestas parametrizables para vista ciudadana."
+    },
+    "/reportes_ciudadanos/{reporteId}": {
+      "schema": { "$ref": "#/entities/ReporteCiudadano" },
+      "description": "Buzón veredal de reportes ciudadanos."
+    }
+  }
+}

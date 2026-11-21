@@ -1,0 +1,11 @@
+{
+  "name": "Casanare Territorio 2027 · Asamblea Departamental",
+  "short_name": "Casanare 2027",
+  "description": "Plataforma territorial interactiva de doble capa (Ciudadano y Campaña) para los 19 municipios de Casanare, Colombia.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#0B6E4F",
+  "lang": "es-CO",
+  "icons": []
+}

@@ -1,0 +1,16 @@
+<resources>
+    <string name="app_name">Casanare 2027</string>
+    <string name="mode_citizen">Vista Ciudadana</string>
+    <string name="mode_campaign">Vista Campaña</string>
+    <string name="mode_demo">Demo Local</string>
+    <string name="btn_team_access">Acceso Equipo</string>
+    <string name="btn_sign_out">Cerrar Sesión</string>
+    <string name="btn_back_casanare">Volver al Mapa de Casanare</string>
+    <string name="btn_dept_proposals">Propuestas Departamentales</string>
+    <string name="btn_demo_mode">Probar Modo Campaña (Demo Local)</string>
+    <string name="btn_google_signin">Iniciar sesión con Google</string>
+    <string name="search_municipality_hint">Buscar municipio (19)…</string>
+    <string name="habeas_data_label">Autorizo el tratamiento de mis datos personales conforme a la Ley 1581 de 2012 (Habeas Data) para fines informativos y de contacto de esta campaña.</string>
+    <string name="report_success_msg">¡Gracias! Tu reporte veredal fue enviado al equipo territorial.</string>
+    <string name="simpatizante_success_msg">Simpatizante registrado con autorización de Habeas Data.</string>
+</resources>

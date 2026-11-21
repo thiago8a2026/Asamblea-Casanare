@@ -1,0 +1,6 @@
+{
+  "name": "Casanare 2027",
+  "description": "Plataforma GIS territorial y ciudadana de doble capa para campaña a la Asamblea Departamental de Casanare (19 municipios) con Firebase Auth y Cloud Firestore.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
